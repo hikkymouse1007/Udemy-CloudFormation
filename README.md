@@ -3,14 +3,20 @@ https://www.udemy.com/course/aws-cloudformation-master-class/learn/lecture/81389
 
 # 1.introduction
 CloudFormationの基本
+- yamlがS3にアップロードされると、CFは S3を参照してスタックを展開する
+- スタックの更新は、"新しいyamlをアップロードする”ことで実現する。
+- スタックは一意な名前で識別される。
+- スタック削除時には、yamlに基づくリソースを全て削除する。
+
 テンプレートの選択>テンプレートファイルの選択からyamlファイルを作成
+
 ```
 // 
 Resources:
   MyInstance:
     Type: AWS::EC2::Instance
     Properties:
-      AvailabilityZone: us-east-1a
+      AvailabilityZone: us-east-1a　 // アベイラビリティーゾーン(a, b, c)も指定すること
       ImageId: ami-04bf6dcdc9ab498ca
       InstanceType: t2.micro
 ```
