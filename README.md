@@ -150,4 +150,13 @@ Resources:
 <img width="692" alt="スクリーンショット 2020-11-23 12 58 28" src="https://user-images.githubusercontent.com/54907440/99928337-ee7ff780-2d8b-11eb-8871-3a5a0efa2bc3.png">
 
 
+## CloudFormation Template
+デザイナーでテンプレートを作成
 
+それぞれの点には役割があるので注意
+![スクリーンショット 2020-11-24 23 17 37](https://user-images.githubusercontent.com/54907440/100106674-2d0cd380-2eac-11eb-87ef-2ec2d9259572.png)
+
+既存のyamlからインフラを出力することも可能
+![スクリーンショット 2020-11-24 23 22 27](https://user-images.githubusercontent.com/54907440/100106680-30a05a80-2eac-11eb-8ad9-18af98dad622.png)
+
+## CloudFormation Parameter
