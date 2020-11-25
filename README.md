@@ -6,3 +6,5 @@ https://www.udemy.com/course/aws-cloudformation-master-class/learn/lecture/81389
 https://sre.google/sre-book/table-of-contents/
 - Qiitaより
 https://qiita.com/tmknom/items/67dbfcf5194aee5c6e61
+- LT資料
+https://codezine.jp/article/detail/11307
