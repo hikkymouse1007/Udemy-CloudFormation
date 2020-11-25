@@ -160,8 +160,170 @@ Resources:
 既存のyamlからインフラを出力することも可能
 ![スクリーンショット 2020-11-24 23 22 27](https://user-images.githubusercontent.com/54907440/100106680-30a05a80-2eac-11eb-8ad9-18af98dad622.png)
 
-## CloudFormation Parameter
+# CloudFormation Parameter
+パラメータとは
+- テンプレートのリユース
+- タイプを利用し、エラーを避ける
+- パラメータの変更にはテンプレートの再アップロードは不要
 
+##　ハンズオン
+
+```
+Parameters:
+  SecurityGroupDescription:
+    Description: Security Group Description (Simple parameter)
+    Type: String
+  SecurityGroupPort:
+    Description: Simple Description of a Number Parameter, with MinValue and MaxValue
+    Type: Number
+    MinValue: 1150
+    MaxValue: 65535
+  InstanceType:
+    Description: WebServer EC2 instance type (has default, AllowedValues)
+    Type: String
+    Default: t2.small
+    AllowedValues:
+      - t1.micro
+      - t2.nano
+      - t2.micro
+      - t2.small
+    ConstraintDescription: must be a valid EC2 instance type.
+  DBPwd:
+    NoEcho: true //パスワードの秘匿化
+    Description: The database admin account password (won't be echoed)
+    Type: String
+  KeyName: //SSHキー
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances. Linked to AWS Parameter
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  SecurityGroupIngressCIDR:
+    Description: The IP address range that can be used to communicate to the EC2 instances
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    Default: 0.0.0.0/0
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2}) //RegExp
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+  MyVPC:
+    Description: VPC to operate in
+    Type: AWS::EC2::VPC::Id
+  MySubnetIDs:
+    Description: Subnet IDs that is a List of Subnet Id
+    Type: "List<AWS::EC2::Subnet::Id>"
+  DbSubnetIpBlocks:
+    Description: "Comma-delimited list of three CIDR blocks"
+    Type: CommaDelimitedList
+    Default: "10.0.48.0/24, 10.0.112.0/24, 10.0.176.0/24"
+
+Resources:
+  MyEC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      #we reference the InstanceType parameter
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      ImageId: "ami-a4c7edb2"
+      # here we reference an internal CloudFormation resource
+      SubnetId: !Ref DbSubnet1
+
+  MySecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Ref SecurityGroupDescription
+      SecurityGroupIngress:
+        - CidrIp: !Ref SecurityGroupIngressCIDR
+          FromPort: !Ref SecurityGroupPort
+          ToPort: !Ref SecurityGroupPort
+          IpProtocol: tcp
+      VpcId: !Ref MyVPC
+
+  DbSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      # the select function allows us to select across a list
+      CidrBlock: !Select [0, !Ref DbSubnetIpBlocks]
+  DbSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      # the select function allows us to select across a list
+      CidrBlock: !Select [1, !Ref DbSubnetIpBlocks]
+  DbSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MyVPC
+      # the select function allows us to select across a list
+      CidrBlock: !Select [2, !Ref DbSubnetIpBlocks]
+
+```
+
+パラメータで指定した値はテンプレで反映される
+
+![スクリーンショット 2020-11-26 0 02 44](https://user-images.githubusercontent.com/54907440/100245516-7415ca00-2f7b-11eb-9a37-79233d09126c.png)
+
+##　参照するには
+Fn:Ref関数を使う
+YAMLでは!Refを使う
+![スクリーンショット 2020-11-26 0 15 41](https://user-images.githubusercontent.com/54907440/100246580-ac69d800-2f7c-11eb-868f-4a5c809cf46b.png)
+
+# Resources
+```
+---
+Resources:
+  MyInstance:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: us-east-1a
+      ImageId: ami-a4c7edb2
+      InstanceType: t2.micro
+      SecurityGroups:
+        - !Ref SSHSecurityGroup
+        - !Ref ServerSecurityGroup
+
+  MyEIP:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-eip.html
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref MyInstance
+
+  SSHSecurityGroup:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: 22
+        IpProtocol: tcp
+        ToPort: 22
+
+  ServerSecurityGroup:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: allow connections from specified CIDR ranges
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 192.168.1.1/32
+
+```
+リソースは以下のように、参照先の順から作成される
+左から) SG > EC2 > EIP
+![スクリーンショット 2020-11-26 0 25 15](https://user-images.githubusercontent.com/54907440/100247713-f99a7980-2f7d-11eb-8295-f4c1087c988b.png)
+
+## Resourceのオプショナルアトリビュート
+- DependOn:リソースの作成順の指定(dockerと一緒)
+- DeletionPolicy: 削除保護設定。RDSなど
+- CreationPolicy: のちの章にて
+- Metadata:　同じく
 
 # SREになるためのおすすめ書籍
 - Google:Site Reliability Engineering
