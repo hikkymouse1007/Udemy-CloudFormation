@@ -1,6 +1,7 @@
 # Udemy-CloudFormation
 https://www.udemy.com/course/aws-cloudformation-master-class/learn/lecture/8138960?start=0#overview
 
+<<<<<<< HEAD
 ユーザガイド
 https://docs.aws.amazon.com/cloudformation/index.html
 
@@ -160,3 +161,13 @@ Resources:
 ![スクリーンショット 2020-11-24 23 22 27](https://user-images.githubusercontent.com/54907440/100106680-30a05a80-2eac-11eb-8ad9-18af98dad622.png)
 
 ## CloudFormation Parameter
+
+
+# SREになるためのおすすめ書籍
+- Google:Site Reliability Engineering
+https://sre.google/sre-book/table-of-contents/
+- Qiitaより
+https://qiita.com/tmknom/items/67dbfcf5194aee5c6e61
+- LT資料
+https://codezine.jp/article/detail/11307
+
