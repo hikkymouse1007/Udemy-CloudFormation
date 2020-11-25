@@ -325,6 +325,70 @@ Resources:
 - CreationPolicy: のちの章にて
 - Metadata:　同じく
 
+# Mappings
+- Fn::FindMAp
+- !FindInMap [MapName, TopLevelKey, SecondLevelKey]
+
+```
+Parameters:
+  EnvironmentName:
+    Description: Environment Name
+    Type: String
+    AllowedValues: [development, production]
+    ConstraintDescription: must be development or production
+
+Mappings:
+  AWSRegionArch2AMI:
+    us-east-1:
+      HVM64: ami-6869aa05
+    us-west-2:
+      HVM64: ami-7172b611
+    us-west-1:
+      HVM64: ami-31490d51
+    eu-west-1:
+      HVM64: ami-f9dd458a
+    eu-central-1:
+      HVM64: ami-ea26ce85
+    ap-northeast-1:
+      HVM64: ami-374db956
+    ap-northeast-2:
+      HVM64: ami-2b408b45
+    ap-southeast-1:
+      HVM64: ami-a59b49c6
+    ap-southeast-2:
+      HVM64: ami-dc361ebf
+    ap-south-1:
+      HVM64: ami-ffbdd790
+    us-east-2:
+      HVM64: ami-f6035893
+    sa-east-1:
+      HVM64: ami-6dd04501
+    cn-north-1:
+      HVM64: ami-8e6aa0e3
+  EnvironmentToInstanceType:
+    development:
+      instanceType: t2.micro
+    # we want a bigger instance type in production
+    production:
+      instanceType: t2.small
+
+Resources:
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !FindInMap [EnvironmentToInstanceType, !Ref 'EnvironmentName', instanceType]
+      # Note we use the pseudo parameter AWS::Region
+      ImageId: !FindInMap [AWSRegionArch2AMI, !Ref 'AWS::Region', HVM64]
+```
+
+マッピングで指定したパラメータは選択肢に反映される
+![スクリーンショット 2020-11-26 0 42 56](https://user-images.githubusercontent.com/54907440/100250223-c73e4b80-2f80-11eb-9dd4-df31029c7978.png)
+
+AMIはマッピングの情報から自分のいるリージョンを自動で判断し、選択してくれる
+![スクリーンショット 2020-11-26 0 45 40](https://user-images.githubusercontent.com/54907440/100250231-cad1d280-2f80-11eb-970f-746eb8fc5556.png)
+
+
+
 # SREになるためのおすすめ書籍
 - Google:Site Reliability Engineering
 https://sre.google/sre-book/table-of-contents/
