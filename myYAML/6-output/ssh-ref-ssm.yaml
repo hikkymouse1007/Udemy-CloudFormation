@@ -1,0 +1,19 @@
+Parameters:
+  Ec2ImageId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+  Ec2InstanceType:
+    Type: String
+    Default: t2.micro
+
+Resources:
+  MySecureInstance:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      ImageId: !Ref Ec2ImageId
+      InstanceType: !Ref Ec2InstanceType
+      SecurityGroups:
+        # we reference the output here, using the Fn::ImportValue function
+        - !ImportValue SSHSecurityGroup

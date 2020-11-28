@@ -166,7 +166,7 @@ Resources:
 - タイプを利用し、エラーを避ける
 - パラメータの変更にはテンプレートの再アップロードは不要
 
-##　ハンズオン
+# 2-ハンズオン
 
 ```
 Parameters:
@@ -267,7 +267,7 @@ Fn:Ref関数を使う
 YAMLでは!Refを使う
 ![スクリーンショット 2020-11-26 0 15 41](https://user-images.githubusercontent.com/54907440/100246580-ac69d800-2f7c-11eb-868f-4a5c809cf46b.png)
 
-# Resources
+# 4-Resources
 ```
 ---
 Resources:
@@ -325,7 +325,7 @@ Resources:
 - CreationPolicy: のちの章にて
 - Metadata:　同じく
 
-# Mappings
+# 5-Mappings
 - Fn::FindMAp
 - !FindInMap [MapName, TopLevelKey, SecondLevelKey]
 
@@ -386,6 +386,123 @@ Resources:
 
 AMIはマッピングの情報から自分のいるリージョンを自動で判断し、選択してくれる
 ![スクリーンショット 2020-11-26 0 45 40](https://user-images.githubusercontent.com/54907440/100250231-cad1d280-2f80-11eb-970f-746eb8fc5556.png)
+
+# 6-Output
+ ネットワークの設定に便利な設定
+ ```
+ // example.yaml
+ Outputs:
+  Logical ID:
+    Description: Information about the value
+    Value: Value to return 
+    Export:
+      Name: Value to export
+ ```
+
+ssh-output.yaml
+ ```
+ Resources:
+  # here we define a SSH security group that will be used in the entire company
+  MyCompanyWideSSHSecurityGroup:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-security-group.html
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        # we have a lot of rules because it's a perfect security group
+        # finance team network
+      - CidrIp: 10.0.48.0/24
+        FromPort: 22
+        IpProtocol: tcp
+        ToPort: 22
+        # marketing team network
+      - CidrIp: 10.0.112.0/24
+        FromPort: 22
+        IpProtocol: tcp
+        ToPort: 22
+        # application team support network
+      - CidrIp: 10.0.176.0/24
+        FromPort: 22
+        IpProtocol: tcp
+        ToPort: 22
+
+Outputs:
+  StackSSHSecurityGroup:
+    Description: The SSH Security Group for our Company
+    Value: !Ref MyCompanyWideSSHSecurityGroup
+    Export:
+      Name: SSHSecurityGroup
+
+ ```
+
+![スクリーンショット 2020-11-28 23 27 39](https://user-images.githubusercontent.com/54907440/100517910-9012a900-31d1-11eb-9dd5-88205032319d.png)
+ アウトプット名がCFのコンソールに表示される
+![スクリーンショット 2020-11-28 23 27 57](https://user-images.githubusercontent.com/54907440/100517912-92750300-31d1-11eb-8690-53bd590f1283.png)
+
+### Outputのimport
+
+```
+Resources:
+  MySecureInstance:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: us-east-1a
+      ImageId: ami-a4c7edb2
+      InstanceType: t2.micro
+      SecurityGroups:
+        # we reference the output here, using the Fn::ImportValue function
+        - !ImportValue SSHSecurityGroup //アウトプットのimport
+
+```
+
+作成したアプトプットのSGが適用されている
+![スクリーンショット 2020-11-28 23 27 57](https://user-images.githubusercontent.com/54907440/100520315-847aae80-31e0-11eb-888f-3e86f70847b9.png)
+
+### おまけ
+SSMパラメータで適切なAMIを取得する実装
+
+```
+Parameters:
+  Ec2ImageId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2
+  Ec2InstanceType:
+    Type: String
+    Default: t2.micro
+
+Resources:
+  MySecureInstance:
+    # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance.html
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      ImageId: !Ref Ec2ImageId
+      InstanceType: !Ref Ec2InstanceType
+      SecurityGroups:
+        # we reference the output here, using the Fn::ImportValue function
+        - !ImportValue SSHSecurityGroup
+
+```
+
+SSMパラメータで適切なAMIを取得する
+https://dev.classmethod.jp/articles/get-the-latest-amazon-linux-2-ami-id-with-cloudformation/
+
+
+## 7-Conditions
+- 環境の設定(dev/test/prod)
+- リージョンの設定
+などに使える
+
+環境変数で作成されるリソースを分けることも可能
+![スクリーンショット 2020-11-29 1 38 16](https://user-images.githubusercontent.com/54907440/100521055-a413d600-31e4-11eb-89db-1fedcb612255.png)
+![スクリーンショット 2020-11-29 1 51 35](https://user-images.githubusercontent.com/54907440/100521194-70857b80-31e5-11eb-8959-f6bd7e044dfa.png)
+![スクリーンショット 2020-11-29 1 45 25](https://user-images.githubusercontent.com/54907440/100521049-99594100-31e4-11eb-87f6-065701cb6d9b.png)
+
+condition function
+https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/intrinsic-function-reference-conditions.html
+
+
 
 
 
