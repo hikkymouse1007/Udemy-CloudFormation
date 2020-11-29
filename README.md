@@ -573,6 +573,38 @@ Metadata:
 
 ![スクリーンショット 2020-11-29 2 05 56](https://user-images.githubusercontent.com/54907440/100521520-9dd32900-31e7-11eb-9af5-c69acff5b892.png)
 
+## EC2 User Data
+Linuxコマンドを実行させる
+
+```
+UserData:
+        Fn::Base64: |
+           #!/bin/bash
+           yum update -y
+           yum install -y httpd24 php56 mysql55-server php56-mysqlnd
+           service httpd start
+           chkconfig httpd on
+           groupadd www
+           usermod -a -G www ec2-user
+           chown -R root:www /var/www
+           chmod 2775 /var/www
+           find /var/www -type d -exec chmod 2775 {} +
+           find /var/www -type f -exec chmod 0664 {} +
+           echo "<?php phpinfo(); ?>" > /var/www/html/phpinfo.php
+```
+
+###　注意
+本セクションはLinux2ではなくLinux1を使う
+https://docs.aws.amazon.com/ja_jp/AWSEC2/latest/UserGuide/amazon-linux-ami-basics.html#amazon-linux-image-id
+
+```
+You have to make sure that you are using the right ec2 image id for your region, if you see in the template this part: "ImageId: ami-a4c7edb2", well for your region the image id is different, you can go and create manually the ec2 instance, and be careful to see image id used for Amazon Linux AMI (this is right on step 1) and not Amazon Linux 2 AMI, as Linux 2 does not support these packages, or use a different repo to pull packages.
+
+Ec2ImageId:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /aws/service/ami-amazon-linux-latest/amzn-ami-hvm-x86_64-gp2
+
+```
 
 
 
