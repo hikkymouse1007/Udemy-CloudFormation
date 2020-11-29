@@ -573,7 +573,7 @@ Metadata:
 
 ![スクリーンショット 2020-11-29 2 05 56](https://user-images.githubusercontent.com/54907440/100521520-9dd32900-31e7-11eb-9af5-c69acff5b892.png)
 
-## EC2 User Data
+## 9-EC2 User Data
 Linuxコマンドを実行させる
 
 ```
@@ -606,8 +606,47 @@ Ec2ImageId:
 
 ```
 
+## CloudFormation Init
+パッケージのバージョンを指定しない場合はlatestがデフォルトで
+インストールされる
+- !Sub Function(substitute:代替)
+環境変数のアサイン
+
+Cfn-hup
+https://www.udemy.com/course/aws-cloudformation-master-class/learn/lecture/8162188#questions/10622236
+メタデータの変更を15分ごとに監視・更新してくれる
+
+>AWS::CloudFormation::Init:の内容に変更があった場合、UpdateStack時にcfn-hupサービスが検知して、cfn-auto-reloader.confの内容(cfn-init)を実行してくれる...ハズなんですが、実行してくれる時としてくれない時があって良くわかりませんでした
+>2018-11-02追記
+/var/log/cfn-hup.logを眺めていたら、どうやら変更監視は15分間隔で実施されているようでした。
+UpdateStack後に次回のチェックを待つとちゃんと実行されました。
+
+https://qiita.com/algi_nao/items/8898afed7ce723ea7fbb
+
+```
+User Data vs CloudFormation::Init vs Helper Scripts
+In summary, what's the difference between EC2 User Data, CloudFormation::Init, and CF Helper scripts?
+
+=============================
+- User-data is an imperative way to provision/bootstrap the EC2 instance using SHELL syntax .
+
+- AWS::CloudFormation::Init is a declarative way to provision/bootstrap the EC2 instance using YAML or JSON syntax.
+
+- AWS::CloudFormation::Init is useless if it is NOT triggered by UserData.
+
+=> Triggering AWS::CloudFormation::Init inside UserData is done by one of helper scripts (cfn-init).
+```
+
+## CloudFormation Drift
+GUIからインフラ変更を加えた場合に、CFのスタックから
+Drift(変更した差分)を確認することができる。
+差分をyamlに反映させることで整合性を保ったり、テンプレートの
+バージョン管理を実現することができる。
+![スクリーンショット 2020-11-29 22 24 24](https://user-images.githubusercontent.com/54907440/100543138-bef05400-3291-11eb-8d0a-bd249b83cf87.png)
 
 
+全てのリソースを網羅しているわけではないので注意。
+https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/detect-drift-stack.html
 
 
 # SREになるためのおすすめ書籍
