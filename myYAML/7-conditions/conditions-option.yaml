@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  SecurityGroups:
+    Type: AWS::EC2::SecurityGroup::GroupName
+    Description: The list of SecurityGroupIds in your Virtual Private Cloud (VPC)
+  EnvType:
+    Description: Environment type.
+    Default: staging
+    Type: String
+    AllowedValues:
+      - prod
+      - staging
+    ConstraintDescription: must specify prod or staging.
+Conditions:
+  CreateProdResources: !Equals [ !Ref EnvType, prod ]
+  CreateStagingResources: !Equals [ !Ref EnvType, staging ]
+
+Resources:
+  EC2InstanceStaging:
+    Type: "AWS::EC2::Instance"
+    Condition: CreateStagingResources
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      ImageId: ami-0224076860dbb3e16
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      SecurityGroups:
+      - !Ref SecurityGroups
+  EC2InstanceProd:
+    Type: "AWS::EC2::Instance"
+    Condition: CreateProdResources
+    Properties:
+      AvailabilityZone: ap-northeast-1a
+      ImageId: ami-0012072c6b0f35aab
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      SecurityGroups:
+      - !Ref SecurityGroups
