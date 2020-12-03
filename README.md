@@ -648,7 +648,529 @@ Drift(変更した差分)を確認することができる。
 全てのリソースを網羅しているわけではないので注意。
 https://docs.aws.amazon.com/ja_jp/AWSCloudFormation/latest/UserGuide/detect-drift-stack.html
 
+# 11-Nested-Stacks
+複数のStackを他のStackから呼び出す
+1. S3を作り、CFのyamlを起き、URLをコピーする
+![スクリーンショット 2020-12-01 22 11 18](https://user-images.githubusercontent.com/54907440/100745251-571d4300-3422-11eb-9df8-f94b91a06f2a.png)
 
+2. StackのURLをyamlから読み込む
+
+```
+#ec2.yaml
+
+Parameters:
+  VPCId:
+    Description: VPC to create the security group and EC2 instance into
+    Type: AWS::EC2::VPC::Id
+
+Mappings:
+  AWSRegionArch2AMI:
+    us-east-1:
+      HVM64: ami-6869aa05
+    us-west-2:
+      HVM64: ami-7172b611
+    us-west-1:
+      HVM64: ami-31490d51
+    eu-west-1:
+      HVM64: ami-f9dd458a
+    eu-central-1:
+      HVM64: ami-ea26ce85
+    ap-northeast-1:
+      HVM64: ami-374db956
+    ap-northeast-2:
+      HVM64: ami-2b408b45
+    ap-southeast-1:
+      HVM64: ami-a59b49c6
+    ap-southeast-2:
+      HVM64: ami-dc361ebf
+    ap-south-1:
+      HVM64: ami-ffbdd790
+    us-east-2:
+      HVM64: ami-f6035893
+    sa-east-1:
+      HVM64: ami-6dd04501
+    cn-north-1:
+      HVM64: ami-8e6aa0e3
+
+Resources:
+
+  SSHSecurityGroupStack:
+    Type: AWS::CloudFormation::Stack　// Nested-Stack　S3からyamlを呼び出す
+    Properties:
+      TemplateURL: https://mashimo-cloudformation-stack.s3-ap-northeast-1.amazonaws.com/ssh-sg.yaml //S3のyamlURL
+      Parameters:
+        ApplicationName: !Ref AWS::StackName
+        VPCId: !Ref VPCId
+      TimeoutInMinutes: 5
+
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      # Note we use the pseudo parameter AWS::Region
+      ImageId: !FindInMap [AWSRegionArch2AMI, !Ref 'AWS::Region', HVM64]
+      AvailabilityZone: !Sub ${AWS::Region}a
+      SecurityGroupIds:
+        - !GetAtt SSHSecurityGroupStack.Outputs.SSHGroupId //S3にあるスタックを取得
+
+```
+SSHSecurityGroupStackはS3のスタックが反映されている。Outputs.SSHGroupIdは下のS3に上げたスタック
+の内容を読み込む。
+
+S3に上げたスタック
+```
+// ssh-sg.yaml
+Parameters:
+  ApplicationName:
+    Description: The application name
+    Type: String
+  VPCId:
+    Description: VPC to create the security group into
+    Type: AWS::EC2::VPC::Id
+  
+Resources:
+  SSHSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: !Sub Security group for ${ApplicationName}
+      SecurityGroupIngress:
+        - CidrIp: "10.0.0.0/25"
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+          Description: SSH for Engineering department
+        - CidrIp: "192.168.0.0/25"
+          FromPort: 22
+          ToPort: 22
+          IpProtocol: tcp
+          Description: SSH for HR department
+      VpcId: !Ref VPCId
+
+Outputs:
+  SSHGroupId:
+    Value: !Ref SSHSecurityGroup
+    Description: Id for the SSH Security Group
+```
+
+3. スタックを作成する
+![スクリーンショット 2020-12-01 22 27 32](https://user-images.githubusercontent.com/54907440/100746968-c72cc880-3424-11eb-83a4-4bd146c83b85.png)
+![スクリーンショット 2020-12-01 22 29 34](https://user-images.githubusercontent.com/54907440/100746981-cac04f80-3424-11eb-83d9-0f6f20e09970.png)
+
+4. スタックの更新
+- 同名のyamlをS3に上げる(yamlが更新される)
+- rootスタックを更新する(同一ファイルの上げ直し)
+![スクリーンショット 2020-12-01 22 39 48](https://user-images.githubusercontent.com/54907440/100748194-60101380-3426-11eb-9686-6e89e5ca1e0d.png)
+![スクリーンショット 2020-12-01 22 40 52](https://user-images.githubusercontent.com/54907440/100748205-630b0400-3426-11eb-81c6-fcc573d31ab2.png)
+
+ネストされたスタックは、CF上では操作しない。
+S3でyamlを更新→CFでrootスタックを更新
+の流れで変更を加える。
+
+
+5. ネストされたスタックの削除
+必ずrootスタックのみを削除する。
+![スクリーンショット 2020-12-01 22 44 43](https://user-images.githubusercontent.com/54907440/100748726-078d4600-3427-11eb-8f90-d6341b10438d.png)
+![スクリーンショット 2020-12-01 22 45 58](https://user-images.githubusercontent.com/54907440/100748734-09efa000-3427-11eb-9dc6-2d1182b3106a.png)
+
+# 12-Advanced
+## AWS CLI
+1. CLIのダウンロード
+2. アクセスキーの発行
+マイセキュリティ資格情報>セキュリティ認証情報
+3. CLIの登録
+pip install awscli --upgrade --user
+aws configure --profile cf-course
+
+```
+// 0-parameters.json
+[
+  {
+    "ParameterKey": "InstanceType",
+    "ParameterValue": "t2.micro"
+  },
+  {
+    "ParameterKey": "KeyName",
+    "ParameterValue": "udemy" //EC2インスタンスの自分のリージョンに存在するSSHキーの名前を指定する
+  },
+  {
+    "ParameterKey": "SSHLocation",
+    "ParameterValue": "0.0.0.0/0"
+  }
+]
+
+```
+
+上のjsonは0-sample-template.yamlの
+Parameters:のkey-valueを配列として
+上から順番に定義している。
+
+```
+// 0-sample-template.yaml
+Metadata:
+  License: Apache-2.0
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation Sample Template Sample template EIP_With_Association:
+  This template shows how to associate an Elastic IP address with an Amazon EC2 instance
+  - you can use this same technique to associate an EC2 instance with an Elastic IP
+  Address that is not created inside the template by replacing the EIP reference in
+  the AWS::EC2::EIPAssoication resource type with the IP address of the external EIP.
+  **WARNING** This template creates an Amazon EC2 instance and an Elastic IP Address.
+  You will be billed for the AWS resources used if you create a stack from this template.'
+Parameters:
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.small
+    AllowedValues: [t1.micro, t2.nano, t2.micro, t2.small, t2.medium, t2.large, m1.small,
+      m1.medium, m1.large, m1.xlarge, m2.xlarge, m2.2xlarge, m2.4xlarge, m3.medium,
+      m3.large, m3.xlarge, m3.2xlarge, m4.large, m4.xlarge, m4.2xlarge, m4.4xlarge,
+      m4.10xlarge, c1.medium, c1.xlarge, c3.large, c3.xlarge, c3.2xlarge, c3.4xlarge,
+      c3.8xlarge, c4.large, c4.xlarge, c4.2xlarge, c4.4xlarge, c4.8xlarge, g2.2xlarge,
+      g2.8xlarge, r3.large, r3.xlarge, r3.2xlarge, r3.4xlarge, r3.8xlarge, i2.xlarge,
+      i2.2xlarge, i2.4xlarge, i2.8xlarge, d2.xlarge, d2.2xlarge, d2.4xlarge, d2.8xlarge,
+      hi1.4xlarge, hs1.8xlarge, cr1.8xlarge, cc2.8xlarge, cg1.4xlarge]
+    ConstraintDescription: must be a valid EC2 instance type.
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  SSHLocation:
+    Description: The IP address range that can be used to SSH to the EC2 instances
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    Default: 0.0.0.0/0
+    AllowedPattern: (\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+Mappings:
+  AWSInstanceType2Arch:
+    t1.micro:
+      Arch: PV64
+    t2.nano:
+      Arch: HVM64
+    t2.micro:
+      Arch: HVM64
+    t2.small:
+      Arch: HVM64
+    t2.medium:
+      Arch: HVM64
+    t2.large:
+      Arch: HVM64
+    m1.small:
+      Arch: PV64
+    m1.medium:
+      Arch: PV64
+    m1.large:
+      Arch: PV64
+    m1.xlarge:
+      Arch: PV64
+    m2.xlarge:
+      Arch: PV64
+    m2.2xlarge:
+      Arch: PV64
+    m2.4xlarge:
+      Arch: PV64
+    m3.medium:
+      Arch: HVM64
+    m3.large:
+      Arch: HVM64
+    m3.xlarge:
+      Arch: HVM64
+    m3.2xlarge:
+      Arch: HVM64
+    m4.large:
+      Arch: HVM64
+    m4.xlarge:
+      Arch: HVM64
+    m4.2xlarge:
+      Arch: HVM64
+    m4.4xlarge:
+      Arch: HVM64
+    m4.10xlarge:
+      Arch: HVM64
+    c1.medium:
+      Arch: PV64
+    c1.xlarge:
+      Arch: PV64
+    c3.large:
+      Arch: HVM64
+    c3.xlarge:
+      Arch: HVM64
+    c3.2xlarge:
+      Arch: HVM64
+    c3.4xlarge:
+      Arch: HVM64
+    c3.8xlarge:
+      Arch: HVM64
+    c4.large:
+      Arch: HVM64
+    c4.xlarge:
+      Arch: HVM64
+    c4.2xlarge:
+      Arch: HVM64
+    c4.4xlarge:
+      Arch: HVM64
+    c4.8xlarge:
+      Arch: HVM64
+    g2.2xlarge:
+      Arch: HVMG2
+    g2.8xlarge:
+      Arch: HVMG2
+    r3.large:
+      Arch: HVM64
+    r3.xlarge:
+      Arch: HVM64
+    r3.2xlarge:
+      Arch: HVM64
+    r3.4xlarge:
+      Arch: HVM64
+    r3.8xlarge:
+      Arch: HVM64
+    i2.xlarge:
+      Arch: HVM64
+    i2.2xlarge:
+      Arch: HVM64
+    i2.4xlarge:
+      Arch: HVM64
+    i2.8xlarge:
+      Arch: HVM64
+    d2.xlarge:
+      Arch: HVM64
+    d2.2xlarge:
+      Arch: HVM64
+    d2.4xlarge:
+      Arch: HVM64
+    d2.8xlarge:
+      Arch: HVM64
+    hi1.4xlarge:
+      Arch: HVM64
+    hs1.8xlarge:
+      Arch: HVM64
+    cr1.8xlarge:
+      Arch: HVM64
+    cc2.8xlarge:
+      Arch: HVM64
+  AWSInstanceType2NATArch:
+    t1.micro:
+      Arch: NATPV64
+    t2.nano:
+      Arch: NATHVM64
+    t2.micro:
+      Arch: NATHVM64
+    t2.small:
+      Arch: NATHVM64
+    t2.medium:
+      Arch: NATHVM64
+    t2.large:
+      Arch: NATHVM64
+    m1.small:
+      Arch: NATPV64
+    m1.medium:
+      Arch: NATPV64
+    m1.large:
+      Arch: NATPV64
+    m1.xlarge:
+      Arch: NATPV64
+    m2.xlarge:
+      Arch: NATPV64
+    m2.2xlarge:
+      Arch: NATPV64
+    m2.4xlarge:
+      Arch: NATPV64
+    m3.medium:
+      Arch: NATHVM64
+    m3.large:
+      Arch: NATHVM64
+    m3.xlarge:
+      Arch: NATHVM64
+    m3.2xlarge:
+      Arch: NATHVM64
+    m4.large:
+      Arch: NATHVM64
+    m4.xlarge:
+      Arch: NATHVM64
+    m4.2xlarge:
+      Arch: NATHVM64
+    m4.4xlarge:
+      Arch: NATHVM64
+    m4.10xlarge:
+      Arch: NATHVM64
+    c1.medium:
+      Arch: NATPV64
+    c1.xlarge:
+      Arch: NATPV64
+    c3.large:
+      Arch: NATHVM64
+    c3.xlarge:
+      Arch: NATHVM64
+    c3.2xlarge:
+      Arch: NATHVM64
+    c3.4xlarge:
+      Arch: NATHVM64
+    c3.8xlarge:
+      Arch: NATHVM64
+    c4.large:
+      Arch: NATHVM64
+    c4.xlarge:
+      Arch: NATHVM64
+    c4.2xlarge:
+      Arch: NATHVM64
+    c4.4xlarge:
+      Arch: NATHVM64
+    c4.8xlarge:
+      Arch: NATHVM64
+    g2.2xlarge:
+      Arch: NATHVMG2
+    g2.8xlarge:
+      Arch: NATHVMG2
+    r3.large:
+      Arch: NATHVM64
+    r3.xlarge:
+      Arch: NATHVM64
+    r3.2xlarge:
+      Arch: NATHVM64
+    r3.4xlarge:
+      Arch: NATHVM64
+    r3.8xlarge:
+      Arch: NATHVM64
+    i2.xlarge:
+      Arch: NATHVM64
+    i2.2xlarge:
+      Arch: NATHVM64
+    i2.4xlarge:
+      Arch: NATHVM64
+    i2.8xlarge:
+      Arch: NATHVM64
+    d2.xlarge:
+      Arch: NATHVM64
+    d2.2xlarge:
+      Arch: NATHVM64
+    d2.4xlarge:
+      Arch: NATHVM64
+    d2.8xlarge:
+      Arch: NATHVM64
+    hi1.4xlarge:
+      Arch: NATHVM64
+    hs1.8xlarge:
+      Arch: NATHVM64
+    cr1.8xlarge:
+      Arch: NATHVM64
+    cc2.8xlarge:
+      Arch: NATHVM64
+  AWSRegionArch2AMI:
+    us-east-1:
+      PV64: ami-2a69aa47
+      HVM64: ami-6869aa05
+      HVMG2: ami-50b4f047
+    us-west-2:
+      PV64: ami-7f77b31f
+      HVM64: ami-7172b611
+      HVMG2: ami-002bf460
+    us-west-1:
+      PV64: ami-a2490dc2
+      HVM64: ami-31490d51
+      HVMG2: ami-699ad409
+    eu-west-1:
+      PV64: ami-4cdd453f
+      HVM64: ami-f9dd458a
+      HVMG2: ami-f0e0a483
+    eu-central-1:
+      PV64: ami-6527cf0a
+      HVM64: ami-ea26ce85
+      HVMG2: ami-d9d62ab6
+    ap-northeast-1:
+      PV64: ami-3e42b65f
+      HVM64: ami-374db956
+      HVMG2: ami-78ba6619
+    ap-northeast-2:
+      PV64: NOT_SUPPORTED
+      HVM64: ami-2b408b45
+      HVMG2: NOT_SUPPORTED
+    ap-southeast-1:
+      PV64: ami-df9e4cbc
+      HVM64: ami-a59b49c6
+      HVMG2: ami-56e84c35
+    ap-southeast-2:
+      PV64: ami-63351d00
+      HVM64: ami-dc361ebf
+      HVMG2: ami-2589b946
+    ap-south-1:
+      PV64: NOT_SUPPORTED
+      HVM64: ami-ffbdd790
+      HVMG2: ami-f7354198
+    us-east-2:
+      PV64: NOT_SUPPORTED
+      HVM64: ami-f6035893
+      HVMG2: NOT_SUPPORTED
+    sa-east-1:
+      PV64: ami-1ad34676
+      HVM64: ami-6dd04501
+      HVMG2: NOT_SUPPORTED
+    cn-north-1:
+      PV64: ami-77559f1a
+      HVM64: ami-8e6aa0e3
+      HVMG2: NOT_SUPPORTED
+Resources:
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      UserData: !Base64
+        Fn::Join:
+        - ''
+        - [IPAddress=, !Ref 'IPAddress']
+      InstanceType: !Ref 'InstanceType'
+      SecurityGroups: [!Ref 'InstanceSecurityGroup']
+      KeyName: !Ref 'KeyName'
+      ImageId: !FindInMap [AWSRegionArch2AMI, !Ref 'AWS::Region', !FindInMap [AWSInstanceType2Arch,
+          !Ref 'InstanceType', Arch]]
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: !Ref 'SSHLocation'
+  IPAddress:
+    Type: AWS::EC2::EIP
+  IPAssoc:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref 'EC2Instance'
+      EIP: !Ref 'IPAddress'
+Outputs:
+  InstanceId:
+    Description: InstanceId of the newly created EC2 instance
+    Value: !Ref 'EC2Instance'
+  InstanceIPAddress:
+    Description: IP address of the newly created EC2 instance
+    Value: !Ref 'IPAddress'
+
+```
+
+![key](https://user-images.githubusercontent.com/54907440/100754571-95206400-342e-11eb-9526-bc0914565a98.png)
+![cl](https://user-images.githubusercontent.com/54907440/100754495-82a62a80-342e-11eb-91cf-f8367e573f3e.png)
+<img width="1439" alt="スクリーンショット 2020-12-01 23 17 06" src="https://user-images.githubusercontent.com/54907440/100754358-5b4f5d80-342e-11eb-84da-391a4da5c791.png">
+![スクリーンショット 2020-12-01 23 23 30](https://user-images.githubusercontent.com/54907440/100754503-846fee00-342e-11eb-980f-666ce36b36f8.png)
+
+##　その他便利ツール系
+- troposphere
+https://github.com/cloudtools/troposphere
+- former2
+https://github.com/iann0036/former2
+
+## Deletion Policy
+スタックを削除しても、リソースを残したいときに定義する
+=>　手動削除を実行したい時
+
+```
+Resources:
+  myS3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+```
 # SREになるためのおすすめ書籍
 - Google:Site Reliability Engineering
 https://sre.google/sre-book/table-of-contents/
